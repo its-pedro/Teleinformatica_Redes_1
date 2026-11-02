@@ -22,16 +22,17 @@ class camada_fisica{
     protected:
         int cod_modulacao = 0;
         int cod_portadora = 0;
+        int amostras_por_bit = 0;
         double cut_freq = 0;
         double input_tension = 0;
 
         vector<int> bit_beacon;
-        vector<int> modulated_signal;
-        vector<int> modulated_port;
-
+        vector<double> modulated_signal;
+        vector<double> modulated_port;
     public:
-        bool modulacao_valid(int);
-        bool portadora_valid(int);
+        bool cod_modulacao_valid(int);
+        bool cod_portadora_valid(int);
+        bool amostras_bit_valid(int);
 
         int get_modulacao();
         void set_modulacao(int);
@@ -41,12 +42,20 @@ class camada_fisica{
         void set_cut_freq(double);
         double get_input_tension();
         void set_input_tension(double);
+        int get_amostragem();
+        void set_amostragem(int);
 };
 
 class camada_fisica_transmissor: public camada_fisica{
+    protected:
+        void nrz_polar();
+        void manchester();
+        void bipolar();
     //modula_portadora()
     //modula_banda_base()
-     
+    public:
+        void modula_sinal();
+        vector<double> get_modulated_signal() { return this->modulated_signal; }
 };
 
 class camada_fisica_receptor: public camada_fisica{

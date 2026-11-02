@@ -29,21 +29,22 @@ class camada_fisica{
         vector<int> bit_beacon;
         vector<double> modulated_signal;
         vector<double> modulated_port;
+        
     public:
-        bool cod_modulacao_valid(int);
-        bool cod_portadora_valid(int);
-        bool amostras_bit_valid(int);
+        int get_modulacao() {return this->cod_modulacao;}
+        void set_modulacao(int cod_modulacao){this->cod_modulacao = cod_modulacao;}
 
-        int get_modulacao();
-        void set_modulacao(int);
-        int get_portadora();
-        void set_portadora(int);
-        double get_cut_freq();
-        void set_cut_freq(double);
-        double get_input_tension();
-        void set_input_tension(double);
-        int get_amostragem();
-        void set_amostragem(int);
+        int get_portadora(){return this->cod_portadora;}
+        void set_portadora(int cod_portadora){this->cod_portadora = cod_portadora;}
+
+        double get_cut_freq(){return this->cut_freq;}
+        void set_cut_freq(double fc){this->cut_freq = fc;}
+
+        double get_input_tension(){return this->input_tension;}
+        void set_input_tension(double V){this->input_tension = V;}
+
+        int get_amostragem(){return this->amostras_por_bit;}
+        void set_amostragem(int amostragem){this->amostras_por_bit = amostragem;}
 };
 
 class camada_fisica_transmissor: public camada_fisica{
@@ -52,7 +53,6 @@ class camada_fisica_transmissor: public camada_fisica{
         void manchester();
         void bipolar();
     //modula_portadora()
-    //modula_banda_base()
     public:
         void modula_sinal();
         vector<double> get_modulated_signal() { return this->modulated_signal; }

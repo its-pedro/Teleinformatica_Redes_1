@@ -4,6 +4,9 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+#include <cmath>
+
+const double pi = acos(-1);
 
 using namespace std;
 
@@ -49,13 +52,22 @@ class camada_fisica{
 
 class camada_fisica_transmissor: public camada_fisica{
     protected:
+    //modulacao banda base
         void nrz_polar();
         void manchester();
         void bipolar();
-    //modula_portadora()
+
+    //modulacao da portadora
+        void ask();
+        void fsk();
+        void psk8();
+        void qam32();
+
     public:
         void modula_sinal();
-        vector<double> get_modulated_signal() { return this->modulated_signal; }
+        void modula_portadora();
+        vector<double> get_modulated_signal() {return this->modulated_signal;}
+        vector<double> get_portadora() {return this->modulated_port;}
 };
 
 class camada_fisica_receptor: public camada_fisica{

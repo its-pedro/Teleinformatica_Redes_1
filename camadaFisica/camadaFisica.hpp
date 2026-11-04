@@ -62,6 +62,7 @@ class camada_fisica{
 class camada_fisica_transmissor: public camada_fisica{
     protected:
     //modulacao banda base
+        int last_bipolar = -1;
         void nrz_polar();
         void manchester();
         void bipolar();
@@ -74,13 +75,14 @@ class camada_fisica_transmissor: public camada_fisica{
 
     public:
         void modula_sinal();
-        void modula_portadora();
-
+        int get_last_bipolar() {return this->last_bipolar;}
+        void set_last_bipolar(int last) {this->last_bipolar = last;}
 };
 
 class camada_fisica_receptor: public camada_fisica{
     protected:
     //demodula_portadora()
+        int last_bipolar = -1;
         void nrz_polar();
         void manchester();
         void bipolar();
@@ -93,7 +95,8 @@ class camada_fisica_receptor: public camada_fisica{
 
     public:
         void demodula_sinal();
-        void demodula_portadora();
+        int get_last_bipolar() {return this->last_bipolar;}
+        void set_last_bipolar(int last) {this->last_bipolar = last;}
 };
 
 #endif

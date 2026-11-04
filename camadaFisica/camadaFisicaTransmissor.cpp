@@ -44,7 +44,6 @@ void camada_fisica_transmissor::modula_sinal(){
     default:
         break;
     }
-   
 }
 
 void camada_fisica_transmissor::nrz_polar(){
@@ -80,14 +79,13 @@ void camada_fisica_transmissor::manchester(){
 void camada_fisica_transmissor::bipolar(){
     vector<double> signal;
     double tension;
-    double ones_last = -(get_input_tension());
 
     for(int bit : get_bit_beacon()){
         tension = 0;
         
         if(bit == 1) {
-            tension = -ones_last;
-            ones_last= tension;
+            tension = -(get_last_bipolar()*get_input_tension());
+            set_last_bipolar(-(get_last_bipolar()));
         }
 
         for(int i = 0; i < get_amostragem(); i++){
@@ -135,7 +133,7 @@ void camada_fisica_transmissor::psk8(){
             if(i + (2-j) >= size){
                 indice |= 0 << j;
             }else{
-                indice |= (get_bit_beacon()[i+j] << j); 
+                indice |= (get_bit_beacon()[i+(2-j)] << j); 
             }
         }
     }

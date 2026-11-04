@@ -10,10 +10,14 @@ const double pi = acos(-1);
 
 using namespace std;
 
+// Escolher entre banda-base e portadora
+// Banda-base    0b01;
+// Portadora     0b10;
+
 // Prover modulacao banda-base
-// NRZ-polar    0b001;
-// Manchester   0b010;
-// Bipolar      0b100;
+// NRZ-polar     0b0001;
+// Manchester    0b0010;
+// Bipolar       0b0100;
 
 // Prover codificacao de portadora
 // ASK           0b0001;
@@ -23,22 +27,27 @@ using namespace std;
 
 class camada_fisica{
     protected:
+        int portadora_banda_base = 0;
         int cod_modulacao = 0;
-        int cod_portadora = 0;
         int amostras_por_bit = 0;
         double cut_freq = 0;
         double input_tension = 0;
 
         vector<int> bit_beacon;
         vector<double> modulated_signal;
-        vector<double> modulated_port;
         
     public:
+        vector<double> get_modulated_signal() {return this->modulated_signal;}
+        void set_modulated_signal(vector<double> signal){this->modulated_signal = signal;}
+
+        vector<int> get_bit_beacon() {return this->bit_beacon;}
+        void set_bit_beacon(vector<int> beacon){this->bit_beacon = beacon;}
+
         int get_modulacao() {return this->cod_modulacao;}
         void set_modulacao(int cod_modulacao){this->cod_modulacao = cod_modulacao;}
 
-        int get_portadora(){return this->cod_portadora;}
-        void set_portadora(int cod_portadora){this->cod_portadora = cod_portadora;}
+        int get_portadora(){return this->portadora_banda_base;}
+        void set_portadora(int cod){this->portadora_banda_base = cod;}
 
         double get_cut_freq(){return this->cut_freq;}
         void set_cut_freq(double fc){this->cut_freq = fc;}
@@ -66,13 +75,25 @@ class camada_fisica_transmissor: public camada_fisica{
     public:
         void modula_sinal();
         void modula_portadora();
-        vector<double> get_modulated_signal() {return this->modulated_signal;}
-        vector<double> get_portadora() {return this->modulated_port;}
+
 };
 
 class camada_fisica_receptor: public camada_fisica{
+    protected:
     //demodula_portadora()
+        void nrz_polar();
+        void manchester();
+        void bipolar();
+
     //demodula_banda_base()
+        void ask();
+        void fsk();
+        void psk8();
+        void qam32();
+
+    public:
+        void demodula_sinal();
+        void demodula_portadora();
 };
 
 #endif

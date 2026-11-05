@@ -99,4 +99,76 @@ vector<int> camada_enlace::edc_crc32(const vector<int>& dados) const{
 
     return inteiro_para_bits(reg, 32);
 }
+    */  
+
+
+    /* 
+    cabeçalho:
+    O transmissor deverá encapsular a carga útil (payload) em quadros, 
+    e o receptor deverá extraí-los corretamente. 
     */
+
+// transmissor coloca 8 bits informando quantos bytes existem no conteúdo do quadro
+vector<int> camada_enlace_transmissor::enquadra_contagem(const vector<int>& conteudo) const{
+    vector<int> quadro = inteiro_para_bits(conteudo.size() / 8, 8); //representar a quantidade de bytes com conteúdo em 1 byte
+    quadro.insert(quadro.end(), conteudo.begin(), conteudo.end()); //coloca o conteudo após o cabeçalho
+    return quadro;
+}
+ 
+
+//paridade por coluna
+vector<int> camada_enlace_transmissor::enquadra_entrelacamento(const vector<int>& conteudo) const{
+    long long n = conteudo.size() / 8; //bytes de conteudo
+    vector<int> quadro = inteiro_para_bits(n, 8);
+ 
+    for(size_t col = 0; col < 8; col++){
+        long long uns =0;
+        for(size_t lin = 0; lin < n; lin++){
+            uns += conteudo[lin * 8 + col];
+        }
+        quadro.push_back(uns % 2);
+    }
+    return quadro;
+}
+ 
+// FLAG [conteudo com ESC antes de FLAG/ESC] FLAG
+// FLAG_BYTE para indicar o início e o fim de um quadro
+vector<int> camada_enlace_transmissor::enquadra_byte_stuffing(const vector<int>& conteudo) const{
+    vector<int> quadro = inteiro_para_bits(FLAG_BYTE, 8); //flag no inicio
+ 
+    for(size_t i = 0; i + 8 <= conteudo.size(); i += 8){
+        int byte = (int) bits_para_inteiro(conteudo, i, 8);
+        if(byte == FLAG_BYTE || byte == ESC_BYTE){
+            vector<int> esc = inteiro_para_bits(ESC_BYTE, 8);
+            quadro.insert(quadro.end(), esc.begin(), esc.end()); //se tem um byte esc ou flag no conteudo, add mais um, pra saber que nao é fim
+        }
+        quadro.insert(quadro.end(), conteudo.begin() + i, conteudo.begin() + i + 8); //add o byte 
+    }
+ 
+    vector<int> flag = inteiro_para_bits(FLAG_BYTE, 8);
+    quadro.insert(quadro.end(), flag.begin(), flag.end()); //coloca flag no final
+    return quadro;
+}
+ 
+// FLAG [conteudo com um 0 apos cada cinco 1s consecutivos] FLAG
+/*
+como a flag tem seis uns consecutivos, se o conteudo tiver mts uns pode ser
+confundido com uma flag
+*/
+vector<int> camada_enlace_transmissor::enquadra_bit_stuffing(const vector<int>& conteudo) const{
+    vector<int> quadro = inteiro_para_bits(FLAG_BYTE, 8); //flag inicial
+    int uns = 0;
+ 
+    for(int bit : conteudo){
+        quadro.push_back(bit);
+        uns = (bit == 1) ? uns + 1 : 0;
+        if(uns == 5){
+            quadro.push_back(0); //zero apos 5 bits 2 consecutivos
+            uns = 0;
+        }
+    }
+ 
+    vector<int> flag = inteiro_para_bits(FLAG_BYTE, 8);
+    quadro.insert(quadro.end(), flag.begin(), flag.end());
+    return quadro;
+}

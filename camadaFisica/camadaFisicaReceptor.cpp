@@ -1,6 +1,7 @@
 #include "camadaFisica.hpp"
 
 void camada_fisica_receptor::demodula_sinal(){
+    set_constelacao();
     switch(get_portadora()){
     case 0b01:
         switch (get_modulacao()){
@@ -38,8 +39,7 @@ void camada_fisica_receptor::demodula_sinal(){
                 break;
 
             default:
-                break;
-            
+                break;   
         }
     default:
         break;
@@ -48,13 +48,17 @@ void camada_fisica_receptor::demodula_sinal(){
 
 void camada_fisica_receptor::nrz_polar(){
     vector<int> beacon;
-    int size = get_modulated_signal().size();
+    vector<double> signal = get_modulated_signal();
+    int smp = get_amostragem();
+    double v = get_input_tension();
+    int size = signal.size();
 
-    for(int i = 0; i < size; i += get_amostragem()){
+
+    for(int i = 0; i < size; i += smp){
         int one = 0, zero = 0;
 
-        for(int j = 0; j < get_amostragem(); j++)
-            get_modulated_signal()[i+j] >= 0 ? one++ : zero++;
+        for(int j = 0; j < smp; j++)
+           signal[i+j] >= 0 ? one++ : zero++;
 
         int bit = (one >= zero) ? 1 : 0;
         beacon.push_back(bit);
@@ -64,16 +68,19 @@ void camada_fisica_receptor::nrz_polar(){
 
 void camada_fisica_receptor::manchester(){
     vector<int> beacon;
-    int size = get_modulated_signal().size();
+    vector<double> signal = get_modulated_signal();
+    int frq = 2 * get_amostragem();
+    double v = get_input_tension();
+    int size = signal.size();
 
-    for(int i = 0; i < size; i += get_amostragem()){
+    for(int i = 0; i < size; i += frq){
         int one = 0, zero = 0;
 
-        for(int j = 0; j < get_amostragem()/2; j++)
-            (get_modulated_signal()[i+j] / get_input_tension()) >= 0.5 ? one++ : zero++;
+        for(int j = 0; j < frq / 2; j++)
+            (signal[i+j] / v) >= 0.5 ? one++ : zero++;
 
-        for(int j = get_amostragem()/2; j < get_amostragem(); j++)
-            (get_modulated_signal()[i+j] / get_input_tension()) >= 0.5 ? zero++ : one++;
+        for(int j = frq /2; j < frq; j++)
+            (signal[i+j] / v) >= 0.5 ? zero++ : one++;
 
         int bit = (one >= zero) ? 1 : 0;
         beacon.push_back(bit);
@@ -82,20 +89,23 @@ void camada_fisica_receptor::manchester(){
 
 void camada_fisica_receptor::bipolar(){
     vector<int> beacon;
-    int size = get_modulated_signal().size();
+    vector<double> signal = get_modulated_signal();
+    int smp = get_amostragem();
+    double v = get_input_tension();
+    int size = signal.size();
 
-    for(int i = 0; i < size; i += get_amostragem()){
+    for(int i = 0; i < size; i += smp){
         int one = 0, zero = 0;
 
-        for(int j = 0; j < get_amostragem(); j++){
-            if(abs(get_modulated_signal()[i+j]) < (get_input_tension()/2)){
+        for(int j = 0; j < smp; j++){
+            if(abs(signal[i+j]) < (v/2)){
                 // bit 0
                 zero++;
             }else{
                 // bit 1
-                if(get_modulated_signal()[i+j] < 0 && get_last_bipolar() < 0)
+                if(signal[i+j] < 0 && get_last_bipolar() < 0)
                     one++;
-                else if(get_modulated_signal()[i+j] > 0 && get_last_bipolar() > 0)
+                else if(signal[i+j] > 0 && get_last_bipolar() > 0)
                     one++;
                 else
                     cout<< "error\n";

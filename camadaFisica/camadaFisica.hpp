@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <vector>
 #include <cmath>
+#include <bitset>
+#include <algorithm>
 
 const double pi = acos(-1);
 
@@ -16,19 +18,19 @@ struct simbolo_iq{
 };
 
 // Escolher entre banda-base e portadora
-// Banda-base    0b01;
-// Portadora     0b10;
+const int BANDA_BASE = 0b01;
+const int PORTADORA  = 0b10; 
 
 // Prover modulacao banda-base
-// NRZ-polar     0b0001;
-// Manchester    0b0010;
-// Bipolar       0b0100;
+const int NRZ_POLAR  = 0b0001;
+const int MANCHESTER = 0b0010;
+const int BIPOLAR    = 0b0100;
 
 // Prover codificacao de portadora
-// ASK           0b0001;
-// FSK           0b0010;
-// PSK (8PSK)    0b0100;
-// 32 QAM        0b1000;
+const int ASK   = 0b0001;
+const int FSK   = 0b0010;
+const int PSK8  = 0b0100;
+const int QAM32 = 0b1000;
 
 class camada_fisica{
     protected:
@@ -91,6 +93,8 @@ class camada_fisica_transmissor: public camada_fisica{
         void qam32();
 
     public:
+        camada_fisica_transmissor(){};
+        camada_fisica_transmissor(int, int, int, double, double);
         void modula_sinal();
 };
 
@@ -108,6 +112,8 @@ class camada_fisica_receptor: public camada_fisica{
         void qam32();
 
     public:
+        camada_fisica_receptor(){};
+        camada_fisica_receptor(int, int, int, double, double);
         void demodula_sinal();
 };
 

@@ -14,9 +14,9 @@ int camada_fisica::gray_to_binary(int bit){
 }
 
 void camada_fisica::set_constelacao(){
-    if(get_portadora() == 0b10){
+    if(get_portadora() == PORTADORA){
         switch (get_modulacao()){
-        case 0b0100: {
+        case PSK8: {
             this->constelacao.resize(8);
             this->gray.resize(8);
             this->inv_gray.resize(8);
@@ -25,12 +25,12 @@ void camada_fisica::set_constelacao(){
                 this->gray[i] = binary_to_gray(i);
                 this->inv_gray[i] = gray_to_binary(i);
                 double theta = gray[i] * (pi / 4.0);
-                this->constelacao[i] = {cos(theta), sin(theta)};
+                this->constelacao[inv_gray[i]] = {sin(theta), cos(theta)};
             }
 
             break;
         }
-        case 0b1000: {
+        case QAM32: {
             this->constelacao.resize(32);
             this->gray.resize(32);
             this->inv_gray.resize(32);
@@ -55,7 +55,7 @@ void camada_fisica::set_constelacao(){
             double fator_escala = sqrt(32.0 / energia_total);
 
             for (int i = 0; i < 32; i++) {
-                this->constelacao[gray[i]] = {
+                this->constelacao[inv_gray[i]] = {
                     mapa_constelacao[i].fase * fator_escala,
                     mapa_constelacao[i].quadratura * fator_escala
                 };

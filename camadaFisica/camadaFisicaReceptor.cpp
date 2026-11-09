@@ -1,46 +1,57 @@
 #include "camadaFisica.hpp"
 
+camada_fisica_receptor::camada_fisica_receptor
+(int portadora_banda_base, int cod_modulacao, int amostras_por_simbolo, double frequencia_corte, double input_tension){
+    set_portadora(portadora_banda_base);
+    set_modulacao(cod_modulacao);
+    set_amostragem(amostras_por_simbolo);
+    set_cut_freq(frequencia_corte);
+    set_input_tension(input_tension);
+}
+
 void camada_fisica_receptor::demodula_sinal(){
     set_constelacao();
     switch(get_portadora()){
-    case 0b01:
+    case BANDA_BASE:
         switch (get_modulacao()){
-            case 0b001:
+            case NRZ_POLAR:
                 nrz_polar();
                 break;
             
-            case 0b010:
+            case MANCHESTER:
                 manchester();
                 break;
 
-            case 0b100:
+            case BIPOLAR:
                 bipolar();
                 break;
 
             default:
                 break;
         }
-    case 0b10:
+        break;
+    case PORTADORA:
         switch(get_modulacao()){
-            case 0b0001:
+            case ASK:
                 ask();
                 break;
             
-            case 0b0010:
+            case FSK:
                 fsk();
                 break;
             
-            case 0b0100:
+            case PSK8:
                 psk8();
                 break;
 
-            case 0b1000:
+            case QAM32:
                 qam32();
                 break;
 
             default:
                 break;   
         }
+        break;
     default:
         break;
     }
@@ -50,9 +61,7 @@ void camada_fisica_receptor::nrz_polar(){
     vector<int> beacon;
     vector<double> signal = get_modulated_signal();
     int smp = get_amostragem();
-    double v = get_input_tension();
     int size = signal.size();
-
 
     for(int i = 0; i < size; i += smp){
         int one = 0, zero = 0;
@@ -85,6 +94,7 @@ void camada_fisica_receptor::manchester(){
         int bit = (one >= zero) ? 1 : 0;
         beacon.push_back(bit);
     }
+    set_bit_beacon(beacon);
 }
 
 void camada_fisica_receptor::bipolar(){
@@ -101,12 +111,12 @@ void camada_fisica_receptor::bipolar(){
             if(abs(signal[i+j]) < (v/2)){
                 zero++;
             }else{
-                if(signal[i+j] < 0 && get_last_bipolar() < 0)
+                if(signal[i+j] > 0 && get_last_bipolar() < 0)
                     one++;
-                else if(signal[i+j] > 0 && get_last_bipolar() > 0)
+                else if(signal[i+j] < 0 && get_last_bipolar() > 0)
                     one++;
                 else
-                    cout<< "error\n";
+                    ;//cout<< i+j << " error\n";
             }
         }
 
@@ -153,17 +163,20 @@ void camada_fisica_receptor::fsk(){
     double fc = get_cut_freq();
     int size = signal.size();
 
+    double tempo = 0.0;
+    double dt = 1.0 / (8 * fc);
+
     for(int i = 0; i < size; i+= smp){
         double energiaF0 = 0;
         double energiaF1 = 0;
 
         for(int j = 0; j < smp; j++){
-            double tempo = (((double) j) / (double) smp);
             double refFc  = sin(2.0 * pi * fc * tempo);
             double ref2Fc = sin(4.0 * pi * fc * tempo);
 
             energiaF0  += abs(signal[i+j] * refFc);
             energiaF1 += abs(signal[i+j] * ref2Fc);
+            tempo += dt;
         }
 
         if(energiaF1 >= energiaF0)

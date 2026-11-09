@@ -1,47 +1,57 @@
 #include "camadaFisica.hpp"
 
+camada_fisica_transmissor::camada_fisica_transmissor
+(int portadora_banda_base, int cod_modulacao, int amostras_por_simbolo, double frequencia_corte, double input_tension){
+    set_portadora(portadora_banda_base);
+    set_modulacao(cod_modulacao);
+    set_amostragem(amostras_por_simbolo);
+    set_cut_freq(frequencia_corte);
+    set_input_tension(input_tension);
+}    
+
 void camada_fisica_transmissor::modula_sinal(){
     set_constelacao();
     switch(get_portadora()){
-    case 0b01:
+    case BANDA_BASE:
         switch (get_modulacao()){
-            case 0b001:
+            case NRZ_POLAR:
                 nrz_polar();
                 break;
             
-            case 0b010:
+            case MANCHESTER:
                 manchester();
                 break;
 
-            case 0b100:
+            case BIPOLAR:
                 bipolar();
                 break;
 
             default:
                 break;
         }
-    case 0b10:
+        break;
+    case PORTADORA:
         switch(get_modulacao()){
-            case 0b0001:
+            case ASK:
                 ask();
                 break;
             
-            case 0b0010:
+            case FSK:
                 fsk();
                 break;
             
-            case 0b0100:
+            case PSK8:
                 psk8();
                 break;
 
-            case 0b1000:
+            case QAM32:
                 qam32();
                 break;
 
             default:
-                break;
-            
+                break;   
         }
+        break;
     default:
         break;
     }
@@ -107,14 +117,18 @@ void camada_fisica_transmissor::ask(){
     vector<double> signal;
     vector<int> bits = get_bit_beacon();
     int smp = get_amostragem();
-    int freq = get_cut_freq();
+    double freq = get_cut_freq();
     double v = get_input_tension();
     
-    for(int bit : bits){
+    double tempo = 0.0;
+    double dt = 1.0 / (8 * freq);
+    
+    for(auto bit : bits){
         for(int i = 0; i < smp; i++){
             double val = (bit == 1) ? 
-                v * sin((2*pi*freq*i)/((double) smp)) : 0;
+                v * sin(2 * pi * freq * tempo) : 0;
             signal.push_back(val);
+            tempo += dt;
         }
     }
     set_modulated_signal(signal);
@@ -126,13 +140,17 @@ void camada_fisica_transmissor::fsk(){
     int smp = get_amostragem();
     int freq = get_cut_freq();
     double v = get_input_tension();
+
+    double tempo = 0.0;
+    double dt = 1.0 / (8 * freq);
     
     for(int bit : bits){
         for(int i = 0; i < smp; i++){
             double val = (bit == 1) ? 
-                v * sin((4*pi*freq*i)/((double) smp)): 
-                v * sin((2*pi*freq*i)/((double) smp));
+                v * sin(4 * pi * freq * tempo): 
+                v * sin(2 * pi * freq * tempo);
             signal.push_back(val);
+            tempo += dt;
         }
     }
     set_modulated_signal(signal);
@@ -154,8 +172,7 @@ void camada_fisica_transmissor::psk8(){
             else
                 valor_binario |= 0;
         }
-
-        simbolo_iq np_signal = constelacao[valor_binario];
+        simbolo_iq np_signal = constelacao[gray[valor_binario]];
 
         for(int n = 0; n < get_amostragem(); n++){
             signal.push_back(np_signal.fase);
@@ -182,8 +199,7 @@ void camada_fisica_transmissor::qam32(){
             else
                 valor_binario |= 0;
         }
-
-        simbolo_iq np_signal = constelacao[valor_binario];
+        simbolo_iq np_signal = constelacao[gray[valor_binario]];
 
         for(int n = 0; n < get_amostragem(); n++){
             signal.push_back(np_signal.fase);

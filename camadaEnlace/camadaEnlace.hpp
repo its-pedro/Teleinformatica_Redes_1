@@ -18,6 +18,8 @@ const int EDC_HAMMING   = 0b1000;
 const int FLAG_BYTE = 0x7E;    
 const int ESC_BYTE  = 0x7D;  
 
+
+
 class camada_enlace {
     protected:
         

@@ -172,3 +172,33 @@ vector<int> camada_enlace_transmissor::enquadra_bit_stuffing(const vector<int>& 
     quadro.insert(quadro.end(), flag.begin(), flag.end());
     return quadro;
 }
+
+//edc so serve pra detecção
+//hamming: redundância q permite corrigir
+
+// Posicoes 1..7: p1 p2 d1 p3 d2 d3 d4
+// p1 cobre 3,5,7 | p2 cobre 3,6,7 | p3 cobre 5,6,7
+vector<int> camada_enlace_transmissor::codifica_hamming(const vector<int>& bits) const{
+    vector<int> saida;
+    int p=0, r = 0;
+
+    while((1 << r) < bits.size() + r + 1) r++;
+
+    int n = bits.size() + r;
+ 
+    for(int i = 1; i <= n; i++){
+        if((i & (i-1)) == 0) saida.push_back(0);
+        else{ 
+            saida.push_back(bits[p]);
+            p++;
+        }
+    }
+
+    for(int i = 1; i <= n; i *= 2){
+        for(int j = 0; j < n; j++){
+            if((j+1) & i) saida[i-1] ^= saida[j];
+        }
+    }
+    
+    return saida;
+}

@@ -199,6 +199,238 @@ vector<int> camada_enlace_transmissor::codifica_hamming(const vector<int>& bits)
             if((j+1) & i) saida[i-1] ^= saida[j];
         }
     }
-    
+
     return saida;
+}
+
+
+vector<vector<int>> camada_enlace_transmissor::processa(const vector<int>& payload) const{
+    vector<vector<int>> quadros;
+ 
+    // O contador de bytes tem 8 bits, entao conteudo (carga + EDC) <= 255 bytes
+    int max_bytes = min(this->tamanho_max_quadro, 255 - bits_do_edc() / 8);
+    if(max_bytes < 1) max_bytes = 1;
+    size_t max_bits = (size_t) max_bytes * 8;
+ 
+    for(size_t i = 0; i < payload.size(); i += max_bits){
+        size_t fim = min(i + max_bits, payload.size());
+        vector<int> conteudo(payload.begin() + i, payload.begin() + fim);
+ 
+        // 1) Anexa o EDC (calculado sobre a carga util)
+        vector<int> edc = calcula_edc(conteudo);
+        conteudo.insert(conteudo.end(), edc.begin(), edc.end());
+ 
+        // 2) Enquadramento
+        vector<int> quadro;
+        switch(this->cod_enquadramento){
+            case ENQ_CONTAGEM:       quadro = enquadra_contagem(conteudo); break;
+            case ENQ_ENTRELACAMENTO: quadro = enquadra_entrelacamento(conteudo); break;
+            case ENQ_BYTE_STUFFING:  quadro = enquadra_byte_stuffing(conteudo); break;
+            case ENQ_BIT_STUFFING:   quadro = enquadra_bit_stuffing(conteudo); break;
+            default:                 quadro = conteudo; break;
+        }
+ 
+        // 3) Correcao de erros (sobre o quadro inteiro, protegendo ate os delimitadores)
+        if(this->cod_edc == EDC_HAMMING){
+            quadro = codifica_hamming(quadro);
+        }
+ 
+        quadros.push_back(quadro);
+    }
+    return quadros;
+}
+
+//desenquadramento
+
+bool camada_enlace_receptor::desenquadra_contagem(const vector<int>& bits, vector<int>& conteudo) const{
+    //primeiros 8 bits informam tamanho da msg
+    if(bits.size() < 8) return false;
+ 
+    size_t n_bits = bits_para_inteiro(bits, 0, 8) * 8;
+    if(bits.size() < 8 + n_bits) return false;      
+ 
+    conteudo.assign(bits.begin() + 8, bits.begin() + 8 + n_bits);
+    return true;
+}
+ 
+bool camada_enlace_receptor::desenquadra_entrelacamento(const vector<int>& bits, vector<int>& conteudo) const {
+    if(bits.size() < 8) return false;
+
+    size_t n = bits_para_inteiro(bits, 0, 8);
+
+    if(bits.size() < 8 + n * 8 + 8) return false;
+
+    conteudo.assign(bits.begin() + 8, bits.begin() + 8 + n * 8);
+
+    for(size_t col = 0; col < 8; col++){
+        int uns = 0;
+
+        for(size_t lin = 0; lin < n; lin++){
+            uns += conteudo[lin * 8 + col];
+        }
+
+        if(uns % 2 != bits[8 + n * 8 + col]){
+            return false;
+        }
+    }
+
+    return true;
+}
+ 
+bool camada_enlace_receptor::desenquadra_byte_stuffing(const vector<int>& bits, vector<int>& conteudo) const{
+    size_t n_bytes = bits.size() / 8;
+    if(n_bytes < 2) return false;
+    if((int) bits_para_inteiro(bits, 0, 8) != FLAG_BYTE) return false;
+ 
+    conteudo.clear();
+    for(size_t i = 1; i < n_bytes; i++){
+        int byte = (int) bits_para_inteiro(bits, i * 8, 8);
+ 
+        if(byte == FLAG_BYTE){
+            return true;                                 // flag final
+        }
+        if(byte == ESC_BYTE){
+            if(++i >= n_bytes) return false;             // ESC sem byte seguinte
+            byte = (int) bits_para_inteiro(bits, i * 8, 8);
+        }
+        vector<int> b = inteiro_para_bits(byte, 8);
+        conteudo.insert(conteudo.end(), b.begin(), b.end());
+    }
+    return false;                                        // nao achou flag final
+}
+ 
+bool camada_enlace_receptor::desenquadra_bit_stuffing(const vector<int>& bits, vector<int>& conteudo) const{
+    int ini = busca_flag(bits, 0);
+    if(ini < 0) return false;
+ 
+    int fim = busca_flag(bits, ini + 8);
+    if(fim < 0) return false;
+ 
+    conteudo.clear();
+    int uns = 0;
+    for(int i = ini + 8; i < fim; i++){
+        if(uns == 5){  // 0 inserido é descartado
+            if(bits[i] != 0) return false;
+            uns = 0;
+            continue;
+        }
+        conteudo.push_back(bits[i]);
+        uns = (bits[i] == 1) ? uns + 1 : 0;
+    }
+    return true;
+}
+
+
+vector<int> camada_enlace_receptor::decodifica_hamming(const vector<int>& bits, int& corrigidos) const {
+    vector<int> saida;
+    corrigidos = 0;
+
+    int n = bits.size();
+    int r = 0;
+
+    while((1 << r) < n + 1) r++;
+
+    if((1 << r) - r - 1 <= 0) return saida;
+
+    vector<int> c(bits);
+
+    int sindrome = 0;
+
+    for(int i = 1; i <= n; i *= 2){
+        int paridade = 0;
+
+        for(int j = 1; j <= n; j++){
+            if(j & i) paridade ^= c[j-1];
+        }
+
+        if(paridade) sindrome += i;
+    }
+
+    if(sindrome != 0){
+        if(sindrome > n) return {};
+
+        c[sindrome - 1] ^= 1;
+        corrigidos++;
+    }
+
+    for(int i = 1; i <= n; i++){
+        if((i & (i-1)) != 0){
+            saida.push_back(c[i-1]);
+        }
+    }
+
+    return saida;
+}
+
+// ---- Pipeline do receptor -------------------------------------------------
+
+quadro_recebido camada_enlace_receptor::processa_quadro(const vector<int>& quadro) const{
+    quadro_recebido resultado;
+    vector<int> bits = quadro;
+
+    // 1) Correcao de erros
+    if(this->cod_edc == EDC_HAMMING){
+        bits = decodifica_hamming(bits, resultado.bits_corrigidos);
+        if(bits.empty()){
+        resultado.diagnostico = "Quadro descartado: erro de Hamming";
+        return resultado;
+    }
+    }
+
+    // 2) Desenquadramento
+    vector<int> conteudo;
+    bool ok = false;
+    switch(this->cod_enquadramento){
+        case ENQ_CONTAGEM:       ok = desenquadra_contagem(bits, conteudo); break;
+        case ENQ_ENTRELACAMENTO: ok = desenquadra_entrelacamento(bits, conteudo); break;
+        case ENQ_BYTE_STUFFING:  ok = desenquadra_byte_stuffing(bits, conteudo); break;
+        case ENQ_BIT_STUFFING:   ok = desenquadra_bit_stuffing(bits, conteudo); break;
+        default:                 conteudo = bits; ok = true; break;
+    }
+    if(!ok){
+        resultado.diagnostico = "Quadro descartado: erro de enquadramento";
+        return resultado;
+    }
+
+    // 3) Verificacao do EDC
+    int n_edc = bits_do_edc();
+    if(n_edc > 0){
+        if((int) conteudo.size() < n_edc){
+            resultado.diagnostico = "Quadro descartado: menor que o EDC";
+            return resultado;
+        }
+        vector<int> carga(conteudo.begin(), conteudo.end() - n_edc);
+        vector<int> edc_recebido(conteudo.end() - n_edc, conteudo.end());
+
+        if(calcula_edc(carga) != edc_recebido){
+            resultado.diagnostico = "Quadro descartado: EDC invalido (erro detectado)";
+            return resultado;
+        }
+        conteudo = carga;
+    }
+
+    resultado.valido = true;
+    resultado.payload = conteudo;
+    resultado.diagnostico = (resultado.bits_corrigidos > 0)
+        ? "Quadro OK (" + to_string(resultado.bits_corrigidos) + " bit(s) corrigido(s))"
+        : "Quadro OK";
+    return resultado;
+}
+
+vector<quadro_recebido> camada_enlace_receptor::processa(const vector<vector<int>>& quadros) const{
+    vector<quadro_recebido> resultados;
+    for(const vector<int>& quadro : quadros){
+        resultados.push_back(processa_quadro(quadro));
+    }
+    return resultados;
+}
+
+vector<int> camada_enlace_receptor::remonta_mensagem(const vector<quadro_recebido>& quadros){
+    vector<int> mensagem;
+    for(const quadro_recebido& q : quadros){
+        if(q.valido){
+            mensagem.insert(mensagem.end(), q.payload.begin(), q.payload.end());
+        }
+    }
+    return mensagem;
 }

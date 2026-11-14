@@ -2,6 +2,7 @@
 #define CAMADA_ENLACE_HPP
 
 #include <vector>
+#include <string>
 
 using namespace std;
 
@@ -18,7 +19,12 @@ const int EDC_HAMMING   = 0b1000;
 const int FLAG_BYTE = 0x7E;    
 const int ESC_BYTE  = 0x7D;  
 
-
+struct quadro_recebido {
+    bool valido = false;                // Quadro integro (ou corrigido)?
+    int bits_corrigidos = 0;            // Quantidade de bits corrigidos pelo Hamming
+    string diagnostico;                 // Mensagem para exibir na GUI
+    vector<int> payload;                // Carga util extraida (vazia se invalido)
+};
 
 class camada_enlace {
     protected:
@@ -72,6 +78,25 @@ class camada_enlace_transmissor: public camada_enlace {
         // Recebe os bits da aplicacao e devolve a lista de quadros prontos
         // para a camada fisica
         vector<vector<int>> processa(const vector<int>& payload) const;
+};
+
+class camada_enlace_receptor: public camada_enlace {
+    private:
+        // Desenquadramento (retornam false se o quadro for malformado)
+        bool desenquadra_contagem(const vector<int>& bits, vector<int>& conteudo) const;
+        bool desenquadra_entrelacamento(const vector<int>& bits, vector<int>& conteudo) const;
+        bool desenquadra_byte_stuffing(const vector<int>& bits, vector<int>& conteudo) const;
+        bool desenquadra_bit_stuffing(const vector<int>& bits, vector<int>& conteudo) const;
+ 
+        // Correcao de erros
+        vector<int> decodifica_hamming(const vector<int>& bits, int& corrigidos) const;
+ 
+    public:
+        quadro_recebido processa_quadro(const vector<int>& quadro) const;
+        vector<quadro_recebido> processa(const vector<vector<int>>& quadros) const;
+ 
+        // Junta a carga util dos quadros validos (descarta os corrompidos)
+        static vector<int> remonta_mensagem(const vector<quadro_recebido>& quadros);
 };
 
 

@@ -88,6 +88,9 @@ class camada_enlace_receptor: public camada_enlace {
         bool desenquadra_byte_stuffing(const vector<int>& bits, vector<int>& conteudo) const;
         bool desenquadra_bit_stuffing(const vector<int>& bits, vector<int>& conteudo) const;
  
+        // Deteccao de erros
+        bool decodifica_crc32(const vector<int>& bits) const;
+
         // Correcao de erros
         vector<int> decodifica_hamming(const vector<int>& bits, int& corrigidos) const;
  

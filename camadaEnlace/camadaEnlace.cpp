@@ -2,6 +2,7 @@
 #include <cmath>
 
 // dados sao vectors de bits
+const vector<int> gerador = {1,0,0,0,0,0,1,0,0,1,1,0,0,0,0,0,1,0,0,0,1,1,1,0,1,1,0,1,1,0,1,1,1};
 
 vector<int> camada_enlace::inteiro_para_bits(unsigned long long valor, int n_bits){
     vector<int> bits;
@@ -82,9 +83,27 @@ vector<int> camada_enlace::edc_checksum(const vector<int>& dados) const{
     return inteiro_para_bits( (~soma) & ((1ULL << w )-1), w);
 }
 
-/*
+
 // CRC-32 (polinomio gerador IEEE 802: 0x04C11DB7), divisao polinomial bit a bit.
 // Sem inicializacao com 1s e sem reflexao: e a divisao "pura" do polinomio.
+vector<int> camada_enlace::edc_crc32(const vector<int>& dados) const{
+    vector<int> aux = dados;
+    vector<int> zero_pad(gerador.size()-1, 0);
+    
+    aux.insert(aux.end(), zero_pad.begin(), zero_pad.end());
+
+    for(int i = 0; i < aux.size() - zero_pad.size(); i++)
+        if(aux[i] == 1)
+            for(int j = 0; j < gerador.size(); j++)
+                aux[i+j] ^= gerador[j];
+
+    vector<int> crc;
+    for(int i = dados.size(); i < aux.size(); i++)
+        crc.push_back(aux[i]);
+
+    return crc;
+}
+/*
 vector<int> camada_enlace::edc_crc32(const vector<int>& dados) const{
     const unsigned int polinomio = 0x04C11DB7; //polinomio gerador
     unsigned int reg = 0; // 32 bits que armazena result
@@ -362,6 +381,23 @@ vector<int> camada_enlace_receptor::decodifica_hamming(const vector<int>& bits, 
     return saida;
 }
 
+bool camada_enlace_receptor::decodifica_crc32(const vector<int>& bits) const{
+    vector<int> aux = bits;
+
+
+    for(int i = 0; i <= aux.size() - gerador.size(); i++){
+        if(aux[i] == 1)
+            for(int j = 0; j < gerador.size(); i++)
+                aux[i+j] ^= gerador[j];
+    }
+        
+    bool ok = true;
+    for(int i = aux.size()-1; i > aux.size() - gerador.size(); i--){
+        if(aux[i] != 0) ok = false;
+    }
+    return ok;
+}
+
 // ---- Pipeline do receptor -------------------------------------------------
 
 quadro_recebido camada_enlace_receptor::processa_quadro(const vector<int>& quadro) const{
@@ -402,9 +438,16 @@ quadro_recebido camada_enlace_receptor::processa_quadro(const vector<int>& quadr
         vector<int> carga(conteudo.begin(), conteudo.end() - n_edc);
         vector<int> edc_recebido(conteudo.end() - n_edc, conteudo.end());
 
-        if(calcula_edc(carga) != edc_recebido){
-            resultado.diagnostico = "Quadro descartado: EDC invalido (erro detectado)";
-            return resultado;
+        if(this->cod_edc == EDC_CRC32){
+            if(!decodifica_crc32(conteudo)){
+                resultado.diagnostico  = "Quadro descartado: EDC invalido (erro detectado)";
+                return resultado;
+            }
+        }else{
+            if(calcula_edc(carga) != edc_recebido){
+                resultado.diagnostico = "Quadro descartado: EDC invalido (erro detectado)";
+                return resultado;
+            }
         }
         conteudo = carga;
     }

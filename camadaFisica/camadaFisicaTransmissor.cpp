@@ -12,6 +12,25 @@ camada_fisica_transmissor::camada_fisica_transmissor
     set_input_tension(input_tension);
 }    
 
+void camada_fisica_transmissor::bit_ignore(vector<double>&signal, double &tempo){
+    double freq = get_cut_freq();
+    double dt = 1.0 / (8 * freq);
+    int size = (get_modulacao() == PSK8)? 3 : 5;
+
+    int val = (get_bit_beacon().size() % size == 0) ? 0 : size - (get_bit_beacon().size() % size);
+    simbolo_iq zero_pad_bits = constelacao[gray[val]];
+
+    for(int n = 0; n < get_amostragem(); n++){
+        double canalI = cos(2 * pi * freq * tempo);
+        double canalQ = -sin(2 * pi * freq * tempo);
+
+        signal.push_back(zero_pad_bits.fase * canalI);
+        signal.push_back(zero_pad_bits.quadratura * canalQ);
+
+        tempo += dt;
+    }
+}
+
 // Rotina principal do transmissor que a partir dos codigos seleciona
 // o tipo de modulacao utilizada banda base ou portadora
 // e dependendo do tipo utilizado seleciona o algoritmo de modulacao desejado
@@ -186,6 +205,8 @@ void camada_fisica_transmissor::psk8(){
     double tempo = 0.0;
     double dt = 1.0 / (8 * freq);
 
+    bit_ignore(signal, tempo);
+
     for(int i = 0; i < size; i += 3){
         int valor_binario = 0;
 
@@ -222,6 +243,9 @@ void camada_fisica_transmissor::qam32(){
     double tempo = 0.0;
     double dt = 1.0 / (8 * freq);
 
+    bit_ignore(signal, tempo);
+    //cout <<  signal.size() << ' ' << tempo << endl;
+
     for(int i = 0; i < size; i += 5){
         int valor_binario = 0;
 
@@ -234,6 +258,8 @@ void camada_fisica_transmissor::qam32(){
                 valor_binario |= 0;
         }
         simbolo_iq np_signal = constelacao[gray[valor_binario]];
+        //bitset<5> val = valor_binario;
+        //cout <<  val << ' ' << valor_binario << ' ' << gray[valor_binario] << endl;
 
         for(int n = 0; n < get_amostragem(); n++){
             double canalI = cos(2 * pi * freq * tempo);

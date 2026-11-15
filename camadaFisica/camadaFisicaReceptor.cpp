@@ -12,6 +12,45 @@ camada_fisica_receptor::camada_fisica_receptor
     set_input_tension(input_tension);
 }
 
+int camada_fisica_receptor::bit_ignore(vector<double>&signal, double &tempo){
+    double freq = get_cut_freq();
+    double dt = 1.0 / (8 * freq);
+    int smp = 2 * get_amostragem();
+    int lim = (get_modulacao() == QAM32)? 32 : 8;
+
+    double fase_media = 0, quadratura_media = 0;
+    for(int i = 0; i < smp-1; i += 2){
+        double canalI = cos(2 * pi * freq * tempo);
+        double canalQ = -sin(2 * pi * freq * tempo);
+
+        signal[i] /= (canalI != 0) ? canalI : 1;
+        signal[i+1] /= (canalQ != 0)? canalQ : 1;
+
+        fase_media += signal[i];
+        quadratura_media += signal[i+1];
+
+        tempo += dt;
+    }
+
+    fase_media /= ((double)smp / 2.0);
+    quadratura_media /= ((double)smp / 2.0);
+
+    double menor_dist = 1e9;
+    int melhor_idx_gray = 0;
+
+    for(int i = 0; i < lim; i++){
+        double di = fase_media - constelacao[i].fase;
+        double dq = quadratura_media - constelacao[i].quadratura;
+        double dist_qi = (dq*dq) + (di*di);
+
+        if(dist_qi < menor_dist){
+            menor_dist = dist_qi;
+            melhor_idx_gray = i;
+        }
+    }
+    return inv_gray[melhor_idx_gray];
+}
+
 // Rotina principal do receptor que a partir dos codigos seleciona
 // o tipo de modulacao utilizada banda base ou portadora
 // e dependendo do tipo utilizado seleciona o algoritmo de modulacao desejado
@@ -218,7 +257,9 @@ void camada_fisica_receptor::psk8(){
     double tempo = 0.0;
     double dt = 1.0 / (8 * freq);
 
-    for(int i = 0; i < size; i += smp){
+    int bit_zero_pad = bit_ignore(signal, tempo);
+
+    for(int i = smp; i < size; i += smp){
         double fase_media = 0, quadratura_media = 0;
 
         for(int j = 0; j < smp-1; j += 2){
@@ -255,6 +296,10 @@ void camada_fisica_receptor::psk8(){
         bits.push_back((simbolo >> 1) & 1);
         bits.push_back(simbolo & 1);
     }
+
+    while(bit_zero_pad--)
+        bits.pop_back();
+
     set_bit_beacon(bits);
 }
 
@@ -270,7 +315,9 @@ void camada_fisica_receptor::qam32(){
     double tempo = 0.0;
     double dt = 1.0 / (8 * freq);
 
-    for(int i = 0; i < size; i += smp){
+    int bit_zero_pad = bit_ignore(signal, tempo);
+
+    for(int i = smp; i < size; i += smp){
         double fase_media = 0, quadratura_media = 0;
 
         for(int j = 0; j < smp-1; j += 2){
@@ -301,13 +348,19 @@ void camada_fisica_receptor::qam32(){
                 melhor_idx_gray = i;
             }
         }
-
         int simbolo = inv_gray[melhor_idx_gray];
+
+        //bitset<5> val = simbolo;
+        //cout <<  val << ' ' << simbolo << ' ' << melhor_idx_gray << endl;
+
         bits.push_back((simbolo >> 4) & 1);
         bits.push_back((simbolo >> 3) & 1);
         bits.push_back((simbolo >> 2) & 1);
         bits.push_back((simbolo >> 1) & 1);
         bits.push_back(simbolo & 1);
     }
+    while(bit_zero_pad--)
+        bits.pop_back();
+
     set_bit_beacon(bits);
 }

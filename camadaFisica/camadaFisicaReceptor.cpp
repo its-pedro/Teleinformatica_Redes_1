@@ -1,5 +1,8 @@
 #include "camadaFisica.hpp"
 
+// Construtor parametrizado que atribui os valores do 
+// parametros durante a inicializacao da classe
+
 camada_fisica_receptor::camada_fisica_receptor
 (int portadora_banda_base, int cod_modulacao, int amostras_por_simbolo, double frequencia_corte, double input_tension){
     set_portadora(portadora_banda_base);
@@ -9,59 +12,55 @@ camada_fisica_receptor::camada_fisica_receptor
     set_input_tension(input_tension);
 }
 
+// Rotina principal do receptor que a partir dos codigos seleciona
+// o tipo de modulacao utilizada banda base ou portadora
+// e dependendo do tipo utilizado seleciona o algoritmo de modulacao desejado
+
 void camada_fisica_receptor::demodula_sinal(){
+    // Chama subrotina que constroi as constelacoe de simbolos no caso
+    // dos algoritmos de modulacoes por portadora: 32 qam e 8 psk 
     set_constelacao();
+
     switch(get_portadora()){
     case BANDA_BASE:
         switch (get_modulacao()){
-            case NRZ_POLAR:
-                nrz_polar();
-                break;
-            
-            case MANCHESTER:
-                manchester();
-                break;
-
-            case BIPOLAR:
-                bipolar();
-                break;
-
-            default:
-                break;
+            case NRZ_POLAR: nrz_polar(); break;
+            case MANCHESTER: manchester(); break;
+            case BIPOLAR: bipolar(); break;
+            default: break;
         }
         break;
+
     case PORTADORA:
         switch(get_modulacao()){
-            case ASK:
-                ask();
-                break;
-            
-            case FSK:
-                fsk();
-                break;
-            
-            case PSK8:
-                psk8();
-                break;
-
-            case QAM32:
-                qam32();
-                break;
-
-            default:
-                break;   
+            case ASK: ask(); break;
+            case FSK: fsk(); break;
+            case PSK8: psk8(); break;
+            case QAM32: qam32(); break;
+            default: break;   
         }
         break;
-    default:
-        break;
+
+    default: break;
     }
 }
+
+// Decodifica o padrao de modulacao banda-base Not-Return to Zero 
+// no qual o sinal = +V (1) ou -V (0)
+// e V eh a tensao de input do transmissor/receptor
 
 void camada_fisica_receptor::nrz_polar(){
     vector<int> beacon;
     vector<double> signal = get_modulated_signal();
     int smp = get_amostragem();
     int size = signal.size();
+
+    // O sinal eh percorrido por todas as smp amostragens de um bit e
+    // quando o valor for maior que a media do sinal (0)
+    // ele eh computado como 1, caso contrario como 0.
+
+    // Apos percorrer as smp amostras o valor mais provavel do bit 
+    // eh o bit que tiver sido mais vezes computado 
 
     for(int i = 0; i < size; i += smp){
         int one = 0, zero = 0;
@@ -75,6 +74,10 @@ void camada_fisica_receptor::nrz_polar(){
     set_bit_beacon(beacon);
 }
 
+// Decodifica o padrao de modulacao banda-base Manchester
+// Para cada bit enviado eh realizado a operacao xor entre o bit
+// a ser enviado e o sinal de clock do sitema 
+
 void camada_fisica_receptor::manchester(){
     vector<int> beacon;
     vector<double> signal = get_modulated_signal();
@@ -85,17 +88,29 @@ void camada_fisica_receptor::manchester(){
     for(int i = 0; i < size; i += frq){
         int one = 0, zero = 0;
 
+        // O sinal eh percorrido por todas as smp amostras de um bit e
+        // Para a primeira metade do sinal como eh realizada  
+        // xor com bit 0 o valor do bit sera "equivalente" ao valor do sinal
+
+        // Se o sinal >= freq/2 entao o bit mais provavel eh 1 
+        // caso contrario bit mais provavel eh 0
         for(int j = 0; j < frq / 2; j++)
             (signal[i+j] / v) >= 0.5 ? one++ : zero++;
 
+        // Ja na segunda metade do sinal como eh realizada xor com  bit 1
+        // Se o sinal >= freq/2 entao o bit mais provavel eh 0 
+        // caso contrario bit mais provavel eh 1
         for(int j = frq /2; j < frq; j++)
             (signal[i+j] / v) >= 0.5 ? zero++ : one++;
 
+        // o bit predito a maior quantidade de vezes eh o valor provavel do bit
         int bit = (one >= zero) ? 1 : 0;
         beacon.push_back(bit);
     }
     set_bit_beacon(beacon);
 }
+
+// Decodifica o padrao de modulacao banda-base Bipolar
 
 void camada_fisica_receptor::bipolar(){
     vector<int> beacon;
@@ -127,6 +142,8 @@ void camada_fisica_receptor::bipolar(){
     set_bit_beacon(beacon);
 }
 
+// Decodifica o padrao de codificacao por portadora ASK
+
 void camada_fisica_receptor::ask(){
     vector<double> signal = get_modulated_signal();
     vector<int> bits;
@@ -155,6 +172,8 @@ void camada_fisica_receptor::ask(){
     }
     set_bit_beacon(bits);
 }
+
+// Decodifica o padrao de codificacao por portadora FSK
 
 void camada_fisica_receptor::fsk(){
     vector<double> signal = get_modulated_signal();
@@ -186,6 +205,8 @@ void camada_fisica_receptor::fsk(){
     }
     set_bit_beacon(bits);
 }
+
+// Decodifica o padrao de codificacao por portadora 8PSK
 
 void camada_fisica_receptor::psk8(){
     vector<double> signal = get_modulated_signal();
@@ -224,6 +245,8 @@ void camada_fisica_receptor::psk8(){
     }
     set_bit_beacon(bits);
 }
+
+// Decodifica o padrao de codificacao por portadora 32QAM
 
 void camada_fisica_receptor::qam32(){
     vector<double> signal = get_modulated_signal();

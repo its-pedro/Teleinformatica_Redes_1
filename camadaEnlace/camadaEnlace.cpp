@@ -16,10 +16,8 @@ vector<int> camada_enlace::inteiro_para_bits(unsigned long long valor, int n_bit
 unsigned long long camada_enlace::bits_para_inteiro(const vector<int>& bits, size_t ini, size_t n_bits){
     unsigned long long valor = 0;
     
-    for(size_t i = 0; i < n_bits; i++){
-        valor += bits[ini+i] * pow(2, n_bits-1-i);
-    }
-
+    for(size_t i = 0; i < n_bits; i++)
+        valor = (valor << 1) | bits[ini + i];
     return valor;
 }
 
@@ -139,6 +137,7 @@ vector<int> camada_enlace_transmissor::enquadra_contagem(const vector<int>& cont
 vector<int> camada_enlace_transmissor::enquadra_entrelacamento(const vector<int>& conteudo) const{
     long long n = conteudo.size() / 8; //bytes de conteudo
     vector<int> quadro = inteiro_para_bits(n, 8);
+    quadro.insert(quadro.end(), conteudo.begin(), conteudo.end()); 
  
     for(size_t col = 0; col < 8; col++){
         long long uns =0;
@@ -387,7 +386,7 @@ bool camada_enlace_receptor::decodifica_crc32(const vector<int>& bits) const{
 
     for(int i = 0; i <= aux.size() - gerador.size(); i++){
         if(aux[i] == 1)
-            for(int j = 0; j < gerador.size(); i++)
+            for(int j = 0; j < gerador.size(); j++)
                 aux[i+j] ^= gerador[j];
     }
         

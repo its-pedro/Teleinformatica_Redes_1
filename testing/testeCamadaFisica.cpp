@@ -1,7 +1,7 @@
 #include "testeCamadaFisica.hpp"
 
 void teste_camada_fisica::run(){
-    cout << "=== INICIANDO TESTES DA CAMADA FÍSICA ===\n" << endl;
+    cout << "=== INICIANDO TESTES DA CAMADA FISICA ===\n" << endl;
 
     testa_nrz_polar();
     testa_manchester();
@@ -11,7 +11,7 @@ void teste_camada_fisica::run(){
     testa_8psk();
     testa_32qam();
 
-    cout << "=== FIM DOS TESTES DA CAMADA FÍSICA ===\n" << endl;
+    cout << "=== FIM DOS TESTES DA CAMADA FISICA ===\n" << endl;
 }
 
 //validado
@@ -173,11 +173,11 @@ void teste_camada_fisica::testa_8psk(){
     
     rx->set_modulated_signal(tx->get_modulated_signal());
     rx->demodula_sinal();
-
+    
     cout << "Sequencia de bits demodulada em rx:\n";
     for(auto b : rx->get_bit_beacon()) cout << b << ' ';
     cout << '\n' << endl;
-
+    
     delete tx;
     delete rx;
 }

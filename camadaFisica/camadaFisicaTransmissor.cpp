@@ -157,7 +157,7 @@ void camada_fisica_transmissor::fsk(){
     vector<double> signal;
     vector<int> bits = get_bit_beacon();
     int smp = get_amostragem();
-    int freq = get_cut_freq();
+    double freq = get_cut_freq();
     double v = get_input_tension();
 
     // para dar resolucao a onda a senoide eh amostrada 8 vezes ao longo do periodo
@@ -180,7 +180,11 @@ void camada_fisica_transmissor::fsk(){
 void camada_fisica_transmissor::psk8(){
     vector<double> signal;
     vector<int> bit = get_bit_beacon();
-    int size = bit.size();   
+    int size = bit.size();    
+
+    double freq = get_cut_freq();
+    double tempo = 0.0;
+    double dt = 1.0 / (8 * freq);
 
     for(int i = 0; i < size; i += 3){
         int valor_binario = 0;
@@ -196,8 +200,13 @@ void camada_fisica_transmissor::psk8(){
         simbolo_iq np_signal = constelacao[gray[valor_binario]];
 
         for(int n = 0; n < get_amostragem(); n++){
-            signal.push_back(np_signal.fase);
-            signal.push_back(np_signal.quadratura);
+            double canalI = cos(2 * pi * freq * tempo);
+            double canalQ = -sin(2 * pi * freq * tempo);
+
+            signal.push_back(np_signal.fase * canalI);
+            signal.push_back(np_signal.quadratura * canalQ);
+
+            tempo += dt;
         }
         
     }
@@ -207,7 +216,11 @@ void camada_fisica_transmissor::psk8(){
 void camada_fisica_transmissor::qam32(){
     vector<double> signal;
     vector<int> bit = get_bit_beacon();
-    int size = bit.size();   
+    int size = bit.size(); 
+    
+    double freq = get_cut_freq();
+    double tempo = 0.0;
+    double dt = 1.0 / (8 * freq);
 
     for(int i = 0; i < size; i += 5){
         int valor_binario = 0;
@@ -223,8 +236,13 @@ void camada_fisica_transmissor::qam32(){
         simbolo_iq np_signal = constelacao[gray[valor_binario]];
 
         for(int n = 0; n < get_amostragem(); n++){
-            signal.push_back(np_signal.fase);
-            signal.push_back(np_signal.quadratura);
+            double canalI = cos(2 * pi * freq * tempo);
+            double canalQ = -sin(2 * pi * freq * tempo);
+
+            signal.push_back(np_signal.fase * canalI);
+            signal.push_back(np_signal.quadratura * canalQ);
+
+            tempo += dt;
         }
     }
     set_modulated_signal(signal);

@@ -214,12 +214,24 @@ void camada_fisica_receptor::psk8(){
     int size = signal.size();
     int smp = 2 * get_amostragem();
 
+    double freq = get_cut_freq();
+    double tempo = 0.0;
+    double dt = 1.0 / (8 * freq);
+
     for(int i = 0; i < size; i += smp){
         double fase_media = 0, quadratura_media = 0;
 
         for(int j = 0; j < smp-1; j += 2){
+            double canalI = cos(2 * pi * freq * tempo);
+            double canalQ = -sin(2 * pi * freq * tempo);
+
+            signal[i+j] /= (canalI != 0) ? canalI : 1;
+            signal[i+j+1] /= (canalQ != 0)? canalQ : 1;
+
             fase_media += signal[i+j];
             quadratura_media += signal[i+j+1];
+
+            tempo += dt;
         }
         fase_media /= ((double)smp / 2.0);
         quadratura_media /= ((double)smp / 2.0);
@@ -254,12 +266,24 @@ void camada_fisica_receptor::qam32(){
     int size = signal.size();
     int smp = 2 * get_amostragem();
 
+    double freq = get_cut_freq();
+    double tempo = 0.0;
+    double dt = 1.0 / (8 * freq);
+
     for(int i = 0; i < size; i += smp){
         double fase_media = 0, quadratura_media = 0;
 
         for(int j = 0; j < smp-1; j += 2){
+            double canalI = cos(2 * pi * freq * tempo);
+            double canalQ = -sin(2 * pi * freq * tempo);
+
+            signal[i+j] /= (canalI != 0) ? canalI : 1;
+            signal[i+j+1] /= (canalQ != 0)? canalQ : 1;
+
             fase_media += signal[i+j];
             quadratura_media += signal[i+j+1];
+
+            tempo += dt;
         }
         fase_media /= ((double)smp / 2.0);
         quadratura_media /= ((double)smp / 2.0);

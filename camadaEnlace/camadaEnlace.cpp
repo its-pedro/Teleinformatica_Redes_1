@@ -100,23 +100,7 @@ vector<int> camada_enlace::edc_crc32(const vector<int>& dados) const{
         crc.push_back(aux[i]);
 
     return crc;
-}
-/*
-vector<int> camada_enlace::edc_crc32(const vector<int>& dados) const{
-    const unsigned int polinomio = 0x04C11DB7; //polinomio gerador
-    unsigned int reg = 0; // 32 bits que armazena result
-    unsigned int topo; //deve-se aplicar polinomio?
-
-    for(int bit : dados){
-        // topo indica se msb do reg e cur bit sao diferentes
-        topo = ((reg >> 31) & 1) ^ (bit & 1);
-        reg <<= 1; // shift right com 0 no reg
-        if(topo) reg ^= polinomio; // se forem diferentes fazemos xor
-    }
-
-    return inteiro_para_bits(reg, 32);
-}
-    */  
+} 
 
 
     /* 

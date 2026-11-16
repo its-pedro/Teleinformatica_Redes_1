@@ -272,7 +272,7 @@ public:
         avisos_.set_text(av);
 
         bb_.mostra(tx.sinal_bb, tx.amostras_por_bit, tx.bits);
-        port_.mostra(tx.sinal_port, tx.amostras_por_bit, tx.bits);
+        port_.mostra(tx.sinal_port, 0);   // portadora: simbolos != bits, sem grade
     }
 
 private:
@@ -398,7 +398,7 @@ private:
 
         const std::vector<double> recebido = sim_.canal(tx.sinal_transmitido(), cfg.ruido);
         const ResultadoRx rx = sim_.receber(tx, recebido, cfg);
-        rx_.mostra(rx, recebido, tx.amostras_por_bit, resumo);
+        rx_.mostra(rx, recebido, tx.usa_portadora ? 0 : tx.amostras_por_bit, resumo);
 
         status_.set_text("Transmitido: " + std::to_string(tx.payload.size()) + " bits de payload, " +
                          std::to_string(tx.quadros.size()) + " quadro(s), " +

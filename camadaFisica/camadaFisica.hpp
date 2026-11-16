@@ -91,6 +91,7 @@ class camada_fisica_transmissor: public camada_fisica{
         void fsk();
         void psk8();
         void qam32();
+        void bit_ignore(vector<double>&signal, double &tempo);
 
     public:
         camada_fisica_transmissor(){};
@@ -110,6 +111,7 @@ class camada_fisica_receptor: public camada_fisica{
         void fsk();
         void psk8();
         void qam32();
+        int bit_ignore(vector<double>&signal, double &tempo);
 
     public:
         camada_fisica_receptor(){};

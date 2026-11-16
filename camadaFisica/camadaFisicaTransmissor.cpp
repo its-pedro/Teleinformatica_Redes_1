@@ -12,6 +12,25 @@ camada_fisica_transmissor::camada_fisica_transmissor
     set_input_tension(input_tension);
 }    
 
+void camada_fisica_transmissor::bit_ignore(vector<double>&signal, double &tempo){
+    double freq = get_cut_freq();
+    double dt = 1.0 / (8 * freq);
+    int size = (get_modulacao() == PSK8)? 3 : 5;
+
+    int val = (get_bit_beacon().size() % size == 0) ? 0 : size - (get_bit_beacon().size() % size);
+    simbolo_iq zero_pad_bits = constelacao[gray[val]];
+
+    for(int n = 0; n < get_amostragem(); n++){
+        double canalI = cos(2 * pi * freq * tempo);
+        double canalQ = -sin(2 * pi * freq * tempo);
+
+        signal.push_back(zero_pad_bits.fase * canalI);
+        signal.push_back(zero_pad_bits.quadratura * canalQ);
+
+        tempo += dt;
+    }
+}
+
 // Rotina principal do transmissor que a partir dos codigos seleciona
 // o tipo de modulacao utilizada banda base ou portadora
 // e dependendo do tipo utilizado seleciona o algoritmo de modulacao desejado
@@ -94,8 +113,8 @@ void camada_fisica_transmissor::manchester(){
 }
 
 // Codifica o padrao de modulacao banda-base Bipolar
-// onde o sinal = 0 V quando o bit for 0 e quando o bit for 1
-// o sinal recebe alternadamente V e -V;
+// onde o sinal = 0 V quando o bit for 0 e 
+// quando o bit for 1 o sinal recebe alternadamente V e -V;
 
 void camada_fisica_transmissor::bipolar(){
     vector<double> signal;
@@ -177,6 +196,8 @@ void camada_fisica_transmissor::fsk(){
     set_modulated_signal(signal);
 }
 
+// Codifica o padrao de modulacao por portadora 8PSK
+
 void camada_fisica_transmissor::psk8(){
     vector<double> signal;
     vector<int> bit = get_bit_beacon();
@@ -185,6 +206,11 @@ void camada_fisica_transmissor::psk8(){
     double freq = get_cut_freq();
     double tempo = 0.0;
     double dt = 1.0 / (8 * freq);
+
+    // Chamada da subrotina responsavel por determinar a quantidade de bits 
+    // ao final da portadora modulada que devem ser ignorados
+    // a quantidade eh convertida em simbolo iq e enviada no primeiro simbolo
+    bit_ignore(signal, tempo);
 
     for(int i = 0; i < size; i += 3){
         int valor_binario = 0;
@@ -197,8 +223,14 @@ void camada_fisica_transmissor::psk8(){
             else
                 valor_binario |= 0;
         }
+
+        // Calcula o simbolo_iq que deve ser associado a sequencia de bits 
+        // na palavra de dados (codificada utilizando o codigo de gray para 
+        // diminuir o bit error rate (BER))
         simbolo_iq np_signal = constelacao[gray[valor_binario]];
 
+        // Cada simbolo iq eh enviado em pares, em i envia-se a fase e em
+        // i+1 a quadratura e cada par eh enviado #(qntd de amostras) vezes
         for(int n = 0; n < get_amostragem(); n++){
             double canalI = cos(2 * pi * freq * tempo);
             double canalQ = -sin(2 * pi * freq * tempo);
@@ -213,6 +245,8 @@ void camada_fisica_transmissor::psk8(){
     set_modulated_signal(signal);
 }
 
+// Codifica o padrao de modulacao por portadora 32QAM
+
 void camada_fisica_transmissor::qam32(){
     vector<double> signal;
     vector<int> bit = get_bit_beacon();
@@ -221,6 +255,11 @@ void camada_fisica_transmissor::qam32(){
     double freq = get_cut_freq();
     double tempo = 0.0;
     double dt = 1.0 / (8 * freq);
+
+    // Chamada da subrotina responsavel por determinar a quantidade de bits 
+    // ao final da portadora modulada que devem ser ignorados
+    // a quantidade eh convertida em simbolo iq e enviada no primeiro simbolo
+    bit_ignore(signal, tempo);
 
     for(int i = 0; i < size; i += 5){
         int valor_binario = 0;
@@ -233,8 +272,14 @@ void camada_fisica_transmissor::qam32(){
             else
                 valor_binario |= 0;
         }
-        simbolo_iq np_signal = constelacao[gray[valor_binario]];
 
+        // calcula o simbolo_iq que deve ser associado a sequencia de bits 
+        // na palavra de dados (codificada utilizando o codigo de gray para 
+        // diminuir o bit error rate (BER))
+        simbolo_iq np_signal = constelacao[gray[valor_binario]];
+        
+        // Cada simbolo iq eh enviado em pares, em i envia-se a fase e em
+        // i+1 a quadratura e cada par eh enviado #(qntd de amostras) vezes
         for(int n = 0; n < get_amostragem(); n++){
             double canalI = cos(2 * pi * freq * tempo);
             double canalQ = -sin(2 * pi * freq * tempo);

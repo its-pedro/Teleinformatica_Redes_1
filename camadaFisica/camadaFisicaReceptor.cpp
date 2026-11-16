@@ -12,6 +12,52 @@ camada_fisica_receptor::camada_fisica_receptor
     set_input_tension(input_tension);
 }
 
+// Para realizar as modulacoes por portadora 8psk e 32qam as palavras binarias de dados
+// devem ter 3 e 5 bits para representacao do simbolo e quando isso nao ocorre, os protocolos
+// fazem padding com zeros para conseguir converter os dados no simbolos
+
+// Esse protocolo adiciona um simbolo antes do envio dos dados que indica quantos
+// bits zeros ao final devem ser ignorados ao final da palavra de dados
+
+int camada_fisica_receptor::bit_ignore(vector<double>&signal, double &tempo){
+    double freq = get_cut_freq();
+    double dt = 1.0 / (8 * freq);
+    int smp = 2 * get_amostragem();
+    int lim = (get_modulacao() == QAM32)? 32 : 8;
+
+    double fase_media = 0, quadratura_media = 0;
+    for(int i = 0; i < smp-1; i += 2){
+        double canalI = cos(2 * pi * freq * tempo);
+        double canalQ = -sin(2 * pi * freq * tempo);
+
+        signal[i] /= (canalI != 0) ? canalI : 1;
+        signal[i+1] /= (canalQ != 0)? canalQ : 1;
+
+        fase_media += signal[i];
+        quadratura_media += signal[i+1];
+
+        tempo += dt;
+    }
+
+    fase_media /= ((double)smp / 2.0);
+    quadratura_media /= ((double)smp / 2.0);
+
+    double menor_dist = 1e9;
+    int melhor_idx_gray = 0;
+
+    for(int i = 0; i < lim; i++){
+        double di = fase_media - constelacao[i].fase;
+        double dq = quadratura_media - constelacao[i].quadratura;
+        double dist_qi = (dq*dq) + (di*di);
+
+        if(dist_qi < menor_dist){
+            menor_dist = dist_qi;
+            melhor_idx_gray = i;
+        }
+    }
+    return inv_gray[melhor_idx_gray];
+}
+
 // Rotina principal do receptor que a partir dos codigos seleciona
 // o tipo de modulacao utilizada banda base ou portadora
 // e dependendo do tipo utilizado seleciona o algoritmo de modulacao desejado
@@ -111,6 +157,8 @@ void camada_fisica_receptor::manchester(){
 }
 
 // Decodifica o padrao de modulacao banda-base Bipolar
+// onde o sinal = 0 V quando o bit for 0 e 
+// quando o bit for 1 o sinal recebe alternadamente V e -V;
 
 void camada_fisica_receptor::bipolar(){
     vector<int> beacon;
@@ -120,8 +168,13 @@ void camada_fisica_receptor::bipolar(){
     int size = signal.size();
 
     for(int i = 0; i < size; i += smp){
-        int one = 0, zero = 0;
+        int one = 0, zero = 0, erro = 0;
 
+        // Utiliza-se a variavel last_bipolar para guardar o ultimo
+        // estado (positivo ou negativo) utilizado pelo bit 1
+        // em caso de erros (esperava -V e recebeu +V ou vice-versa)
+        // maiores q ones e zeros a informacao do bit nao eh enviada
+        // e sendo assim o bit eh enviado com erro
         for(int j = 0; j < smp; j++){
             if(abs(signal[i+j]) < (v/2)){
                 zero++;
@@ -131,9 +184,11 @@ void camada_fisica_receptor::bipolar(){
                 else if(signal[i+j] < 0 && get_last_bipolar() > 0)
                     one++;
                 else
-                    ;//cout<< i+j << " error\n";
+                    erro++;
             }
         }
+        if(erro > max(one, zero))
+            continue;
 
         int bit = (one >= zero) ? 1 : 0;
         if(bit == 1) set_last_bipolar(- (get_last_bipolar()));
@@ -143,6 +198,8 @@ void camada_fisica_receptor::bipolar(){
 }
 
 // Decodifica o padrao de codificacao por portadora ASK
+// a portadora eh modelada a partir de uma senoide cujo w = 2*pi*freq
+// assim quando bit = 0 o sinal = 0 e quando bit = 1 o sinal = valor da senoide
 
 void camada_fisica_receptor::ask(){
     vector<double> signal = get_modulated_signal();
@@ -150,6 +207,10 @@ void camada_fisica_receptor::ask(){
     int smp = get_amostragem();
     int size = signal.size();
     vector<double> medias_energeticas;
+
+    // Para demodular a portadora nesse caso eh calculada a media
+    // energetica do sinal recebido (para tolerar o ruido do canal)
+    // para definir uma referencia de bit 0 e 1 dinamica
 
     for(int i = 0; i < size; i+= smp){
         double energia_total = 0.0;
@@ -164,6 +225,9 @@ void camada_fisica_receptor::ask(){
 
     double dinamicLim = (maxApl - minApl) / 2.0;
 
+    // bit = 1 se media do sinal amostrado smp vezes for maior que o limiar 
+    // caso contrario bit = 0
+
     for(auto avg : medias_energeticas){
         if(avg >= dinamicLim)
             bits.push_back(1);
@@ -174,6 +238,10 @@ void camada_fisica_receptor::ask(){
 }
 
 // Decodifica o padrao de codificacao por portadora FSK
+// a portadora eh modelada a partir de duas senoide 
+// uma com w1 = 2*pi*freq e outra com w2 = 2*w1 = 2*pi*freq
+// assim quando bit = 0 o sinal = valor da senoide vel angular w1
+// e quando bit = 1 o sinal = valor da senoide de vel angular w2
 
 void camada_fisica_receptor::fsk(){
     vector<double> signal = get_modulated_signal();
@@ -189,6 +257,9 @@ void camada_fisica_receptor::fsk(){
         double energiaF0 = 0;
         double energiaF1 = 0;
 
+        // calcula uma referencia a cada uma das frequencias possiveis e calcula a correlacao
+        // entre o sinal amostrado e o valor de referencia paradeterminar com 
+        // qual frequencia a senoide recebida eh mais provavel de ter
         for(int j = 0; j < smp; j++){
             double refFc  = sin(2.0 * pi * fc * tempo);
             double ref2Fc = sin(4.0 * pi * fc * tempo);
@@ -206,7 +277,7 @@ void camada_fisica_receptor::fsk(){
     set_bit_beacon(bits);
 }
 
-// Decodifica o padrao de codificacao por portadora 8PSK
+// Decodifica o padrao de modulacao por portadora 8PSK
 
 void camada_fisica_receptor::psk8(){
     vector<double> signal = get_modulated_signal();
@@ -218,9 +289,16 @@ void camada_fisica_receptor::psk8(){
     double tempo = 0.0;
     double dt = 1.0 / (8 * freq);
 
-    for(int i = 0; i < size; i += smp){
+    // chamada da subrotina responsavel por determinar a quantidade de bits 
+    // ao final da portadora modulada que devem ser ignorados
+    // o qual eh dada pelo primeiro simbolo enviado 
+    int bit_zero_pad = bit_ignore(signal, tempo);
+
+    for(int i = smp; i < size; i += smp){
         double fase_media = 0, quadratura_media = 0;
 
+        // Para cada uma das smps amostras dos simbolos iq o sinal soma-se os 
+        // sinais de fase e quadratura recebidos para calcular suas medias
         for(int j = 0; j < smp-1; j += 2){
             double canalI = cos(2 * pi * freq * tempo);
             double canalQ = -sin(2 * pi * freq * tempo);
@@ -239,6 +317,9 @@ void camada_fisica_receptor::psk8(){
         double menor_dist = 1e9;
         int melhor_idx_gray = 0;
 
+        // Para cada sinal amostrado avalia-se qual o simbolo iq  melhor representa
+        // o sinal amostrado calculando a distancia dele a cada simbolo da constelacao
+        // o valor mais provavel sera considerado o valor do simbolo  
         for(int i = 0; i < 8; i++){
             double di = fase_media - constelacao[i].fase;
             double dq = quadratura_media - constelacao[i].quadratura;
@@ -255,10 +336,15 @@ void camada_fisica_receptor::psk8(){
         bits.push_back((simbolo >> 1) & 1);
         bits.push_back(simbolo & 1);
     }
+
+    // Retira do trem de bits os zeros redundantes do padding
+    while(bit_zero_pad--)
+        bits.pop_back();
+
     set_bit_beacon(bits);
 }
 
-// Decodifica o padrao de codificacao por portadora 32QAM
+// Decodifica o padrao de modulacao por portadora 32QAM
 
 void camada_fisica_receptor::qam32(){
     vector<double> signal = get_modulated_signal();
@@ -270,9 +356,17 @@ void camada_fisica_receptor::qam32(){
     double tempo = 0.0;
     double dt = 1.0 / (8 * freq);
 
-    for(int i = 0; i < size; i += smp){
+    // chamada da subrotina responsavel por determinar a quantidade de bits 
+    // ao final da portadora modulada que devem ser ignorados
+    // o qual eh dada pelo primeiro simbolo enviado 
+    int bit_zero_pad = bit_ignore(signal, tempo);
+
+    
+    for(int i = smp; i < size; i += smp){
         double fase_media = 0, quadratura_media = 0;
 
+        // Para cada uma das smps amostras dos simbolos iq o sinal soma-se os 
+        // sinais de fase e quadratura recebidos para calcular suas medias
         for(int j = 0; j < smp-1; j += 2){
             double canalI = cos(2 * pi * freq * tempo);
             double canalQ = -sin(2 * pi * freq * tempo);
@@ -291,6 +385,9 @@ void camada_fisica_receptor::qam32(){
         double menor_dist = 1e9;
         int melhor_idx_gray = 0;
 
+        // Para cada sinal amostrado avalia-se qual o simbolo iq  melhor representa
+        // o sinal amostrado calculando a distancia dele a cada simbolo da constelacao
+        // o valor mais provavel sera considerado o valor do simbolo
         for(int i = 0; i < 32; i++){
             double di = fase_media - constelacao[i].fase;
             double dq = quadratura_media - constelacao[i].quadratura;
@@ -301,13 +398,18 @@ void camada_fisica_receptor::qam32(){
                 melhor_idx_gray = i;
             }
         }
-
         int simbolo = inv_gray[melhor_idx_gray];
+
         bits.push_back((simbolo >> 4) & 1);
         bits.push_back((simbolo >> 3) & 1);
         bits.push_back((simbolo >> 2) & 1);
         bits.push_back((simbolo >> 1) & 1);
         bits.push_back(simbolo & 1);
     }
+
+    // Retira do trem de bits os zeros redundantes do padding
+    while(bit_zero_pad--)
+        bits.pop_back();
+
     set_bit_beacon(bits);
 }

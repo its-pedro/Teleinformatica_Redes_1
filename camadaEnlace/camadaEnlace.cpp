@@ -58,7 +58,7 @@ vector<int> camada_enlace::edc_paridade(const vector<int>& dados) const{
     else return inteiro_para_bits(0, 8);
 }
 
-// Checksum: soma de palavras de 'tamanho_edc' e inverte bits (receptor vai somar tudo e ver se da zero)
+// Checksum: soma de palavras de 'tamanho_edc' e inverte bits (receptor vai somar tudo e conferir se zera)
 vector<int> camada_enlace::edc_checksum(const vector<int>& dados) const{
     const int w = this->tamanho_edc;
     unsigned long long soma = 0;
@@ -174,9 +174,6 @@ vector<int> camada_enlace_transmissor::enquadra_bit_stuffing(const vector<int>& 
     quadro.insert(quadro.end(), flag.begin(), flag.end());
     return quadro;
 }
-
-//edc so serve pra detecção
-//hamming: redundância q permite corrigir
 
 // Posicoes 1..7: p1 p2 d1 p3 d2 d3 d4
 // p1 cobre 3,5,7 | p2 cobre 3,6,7 | p3 cobre 5,6,7
